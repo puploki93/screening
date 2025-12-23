@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Mental Health Screening (Educational – Not a Diagnosis)</title>
+
+<style>
+  body{
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    max-width:980px;margin:24px auto;padding:0 12px;
+    background:#fafafa;color:#111
+  }
+  .card{
+    background:#fff;border:1px solid #e6e6e6;border-radius:14px;
+    padding:16px;margin:14px 0;box-shadow:0 8px 18px rgba(0,0,0,.04)
+  }
+  .warn{border-color:#ffb3b3;background:#fff5f5}
+  .ok{border-color:#b7f0d3;background:#f4fffb}
+  .hidden{display:none}
+  h1,h2,h3{margin:0 0 8px}
+  .muted{color:#555;font-size:14px;line-height:1.35}
+  .q{
+    padding:12px;border:1px solid #eee;border-radius:12px;
+    margin:10px 0;background:#fff
+  }
+  .q label{display:block;font-weight:650;margin-bottom:8px}
+  .choices{display:flex;flex-wrap:wrap;gap:10px}
+  button{
+    padding:12px 16px;border-radius:12px;border:1px solid #111;
+    background:#111;color:#fff;cursor:pointer;font-size:15px
+  }
+  button.secondary{background:#fff;color:#111}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .bar{height:10px;border-radius:999px;background:#eee;overflow:hidden}
+  .bar>div{height:100%;background:#111;width:0%}
+  .row{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+  .pill{display:inline-block;padding:2px 10px;border-radius:999px;background:#f1f1f1;font-size:12px;margin-left:8px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:820px){.two{grid-template-columns:1fr}}
+  details pre{white-space:pre-wrap}
+  .topbar{
+    position:sticky;top:0;z-index:50;
+    background:rgba(250,250,250,.95);backdrop-filter:saturate(140%) blur(10px);
+    border-bottom:1px solid #eaeaea;margin:0 -12px;padding:10px 12px
+  }
+  .topbar .card{margin:0;border-radius:12px}
+  .progressWrap{display:flex;align-items:center;gap:12px}
+  .progressText{min-width:190px;font-size:13px;color:#444}
+  .tiny{font-size:12px;color:#666}
+  .linkish{color:#111;text-decoration:underline;cursor:pointer}
+  .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; background:#f3f3f3; padding:2px 6px; border-radius:8px; border:1px solid #e6e6e6}
+  @media print{
+    .topbar, #secActions, #btnBack, #btnReset, #btnSubmit, #btnPrint, #btnClear, #btnSaveNow, #btnLoad, #btnExportJSON, details { display:none !important; }
+    body{background:#fff; box-shadow:none}
+    .card{box-shadow:none}
+  }
+</style>
+</head>
+
+<body>
+
+<div class="topbar">
+  <div class="card">
+    <div class="row">
+      <div>
+        <b>Progress</b>
+        <span class="pill" id="progressPill">0%</span>
+        <div class="tiny" id="autosaveStatus">Autosave: ready</div>
+      </div>
+      <div style="flex:1;min-width:220px">
+        <div class="bar" aria-label="Progress bar">
+          <div id="progressBar"></div>
+        </div>
+        <div class="progressWrap" style="margin-top:8px">
+          <div class="progressText" id="progressText">0 of 0 answered</div>
+          <div class="tiny" id="sectionText">Visible sections: 0</div>
+        </div>
+      </div>
+      <div class="row" style="gap:8px">
+        <button type="button" class="secondary" id="btnSaveNow" title="Force-save answers now">Save</button>
+        <button type="button" class="secondary" id="btnLoad" title="Load previously saved answers">Load</button>
+        <button type="button" class="secondary" id="btnClear" title="Clear saved answers (local)">Clear Saved</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="pageForm">
+  <h1>Mental Health Screening Questionnaire</h1>
+
+  <p class="muted">
+    This tool looks for patterns in how you’ve been feeling and functioning. It produces <b>screening matches</b> to guide conversations with a licensed clinician.
+    <b>This is not a diagnosis</b> and not medical advice. For a real diagnosis you need a professional evaluation.
+  </p>
+
+  <div class="card warn">
+    <b>Safety:</b> If you are in immediate danger or thinking about harming yourself or someone else, stop and seek emergency help now.
+  </div>
+
+  <form id="form">
+    <div class="card" id="secSafety">
+      <h2>1) Safety Screen</h2>
+      <div id="safetyQs"></div>
+      <div id="crisisBox" class="card warn hidden">
+        <h3>Immediate support recommended</h3>
+        <p class="muted">
+          Your answers suggest a possible safety concern. Please contact emergency services, a local crisis line, or a trusted professional immediately.
+        </p>
+      </div>
+    </div>
+
+    <div class="card" id="secConf">
+      <h2>2) Medical / Sleep / Substance Factors</h2>
+      <p class="muted">These help a clinician rule out causes that can mimic mental health symptoms.</p>
+      <div id="confQs"></div>
+    </div>
+
+    <div class="card" id="secGates">
+      <h2>3) Quick Gates</h2>
+      <p class="muted">Answer these first. They control which sections appear next.</p>
+      <div id="gateQs"></div>
+      <div class="tiny">Tip: if a section doesn’t show up, it means the gate for it wasn’t positive.</div>
+    </div>
+
+    <div class="card hidden" id="modMood">
+      <h2>4) Mood & Energy</h2>
+      <div id="moodQs"></div>
+    </div>
+
+    <div class="card hidden" id="modAnx">
+      <h2>5) Anxiety & Fear</h2>
+      <div id="anxQs"></div>
+    </div>
+
+    <div class="card hidden" id="modTrauma">
+      <h2>6) Trauma + Dissociation</h2>
+      <div id="traumaQs"></div>
+    </div>
+
+    <div class="card hidden" id="modPsy">
+      <h2>7) Perception & Reality</h2>
+      <div id="psyQs"></div>
+    </div>
+
+    <div class="card hidden" id="modOcd">
+      <h2>8) Repetitive Thoughts & Behaviors</h2>
+      <div id="ocdQs"></div>
+    </div>
+
+    <div class="card hidden" id="modNeuro">
+      <h2>9) Attention & Development</h2>
+      <div id="neuroQs"></div>
+    </div>
+
+    <div class="card hidden" id="modEat">
+      <h2>10) Eating & Body Image</h2>
+      <div id="eatQs"></div>
+    </div>
+
+    <div class="card hidden" id="modSom">
+      <h2>11) Health Worries & Physical Symptoms</h2>
+      <div id="somQs"></div>
+    </div>
+
+    <div class="card hidden" id="modSleep">
+      <h2>12) Sleep Patterns</h2>
+      <div id="sleepQs"></div>
+    </div>
+
+    <div class="card hidden" id="modSud">
+      <h2>13) Alcohol & Substance Use</h2>
+      <div id="sudQs"></div>
+    </div>
+
+    <div class="card hidden" id="modImp">
+      <h2>14) Anger & Impulsivity</h2>
+      <div id="impQs"></div>
+    </div>
+
+    <div class="card hidden" id="modPd">
+      <h2>15) Long-Term Personality & Relationship Patterns</h2>
+      <div id="pdQs"></div>
+    </div>
+
+    <div class="card" id="secActions">
+      <div class="row">
+        <button type="button" id="btnSubmit">Submit</button>
+        <button type="button" class="secondary" id="btnReset">Reset (form only)</button>
+        <button type="button" class="secondary" id="btnExportJSON">Export JSON</button>
+      </div>
+      <p class="muted">
+        Submit hides the form and shows results full-page. Your answers auto-save on each selection.
+        PDF export is available on the results page using <span class="kbd">Print</span> → <span class="kbd">Save as PDF</span>.
+      </p>
+      <div id="validationBanner" class="card warn hidden"></div>
+    </div>
+  </form>
+</div>
+
+<div id="pageResults" class="hidden">
+  <h1>Your Screening Results</h1>
+
+  <div id="resultsTop" class="card"></div>
+
+  <div class="card" id="ehrSummaryCard">
+    <h2>EHR-style Clinician Summary</h2>
+    <div id="ehrSummary"></div>
+  </div>
+
+  <div id="resultsScores"></div>
+
+  <div class="card warn">
+    <h3>Not a diagnosis</h3>
+    <p class="muted">
+      These are <b>screening match scores</b> (0–100) based on your answers. They are not diagnoses and not certainties.
+      Please take this page to your doctor/therapist/psychiatrist for proper evaluation.
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <button type="button" class="secondary" id="btnBack">Back to form</button>
+      <button type="button" id="btnPrint" title="Print or Save as PDF">Clinician PDF Export (Print)</button>
+    </div>
+    <p class="tiny">PDF export uses your browser’s print dialog. Choose “Save as PDF”.</p>
+  </div>
+
+  <details class="card">
+    <summary><b>Clinician/Developer view: internal mapping + raw answers</b></summary>
+    <p class="muted">This shows internal tags and values to support differential discussion. It does not reproduce DSM text.</p>
+    <pre id="tagDump"></pre>
+  </details>
+</div>
+
+<script>
+/* =========================
+   SCALE OPTIONS
+========================= */
+const YESNO = [{v:0,t:"No"},{v:1,t:"Yes"}];
+const FREQ  = [
+  {v:0,t:"Not at all"},
+  {v:1,t:"Sometimes"},
+  {v:2,t:"Often"},
+  {v:3,t:"Almost every day"}
+];
+
+/* =========================
+   QUESTION BANK (Humanized)
+   IDs / tags preserved under hood
+========================= */
+function q(id,text,scale,tags,opts={}){ return {id,text,scale,tags,opts}; }
+
+const BANK = {
+  safety: [
+    q("s_si","In the past two weeks, have you had thoughts about harming yourself or not wanting to be alive?",YESNO,["SAFETY:SI"],{stopIfYes:true}),
+    q("s_hi","In the past two weeks, have you had thoughts about seriously harming someone else?",YESNO,["SAFETY:HI"],{stopIfYes:true}),
+    q("s_psy_now","Right now, are you experiencing things that feel very real to you but others say are not, such as voices, visions, or strongly held beliefs?",YESNO,["SAFETY:ACUTE_PSY"],{stopIfYes:true}),
+  ],
+
+  conf: [
+    q("c_sub","Did these difficulties begin or get much worse after starting, stopping, or changing alcohol, drugs, or medications?",YESNO,["RULEOUT:SUBSTANCE"]),
+    q("c_med","Did these difficulties begin after a significant medical issue, injury, or illness?",YESNO,["RULEOUT:MEDICAL"]),
+    q("c_sleep","Do your symptoms mostly worsen when your sleep is very poor and improve when your sleep improves?",YESNO,["RULEOUT:SLEEP"]),
+  ],
+
+  gates: [
+    q("g_mood","Over the past two weeks, have you felt persistently down, empty, or lost interest in things you usually care about?",FREQ,["GATE:MOOD","MDD:A1","MDD:A2"]),
+    q("g_anx","Over the past two weeks, have you felt very anxious, worried, panicky, or constantly on edge?",FREQ,["GATE:ANX"]),
+    q("g_trauma","Have you experienced something extremely frightening, violent, or life-threatening that still affects you today?",YESNO,["GATE:TRAUMA","PTSD:A"]),
+    q("g_psy","In the past month, have you experienced hallucinations or beliefs that others strongly disagree with?",FREQ,["GATE:PSY"]),
+    q("g_ocd","In the past month, have intrusive thoughts or urges repeatedly taken over your mind, or felt driven to repeat behaviors?",FREQ,["GATE:OCD"]),
+    q("g_neuro","Since childhood, have attention, focus, or social differences caused ongoing problems in daily life?",FREQ,["GATE:NEURO"]),
+    q("g_eat","Do concerns about eating, weight, or body shape significantly affect your emotions or behavior?",FREQ,["GATE:EAT"]),
+    q("g_som","Do you spend a lot of time worrying about your health or physical symptoms, even when doctors say things look okay?",FREQ,["GATE:SOM"]),
+    q("g_sleep","Are sleep problems significantly interfering with your daily functioning?",FREQ,["GATE:SLEEP"]),
+    q("g_sud","Do alcohol or drug use patterns concern you or people close to you?",FREQ,["GATE:SUD"]),
+    q("g_imp","Do anger, impulsive actions, or loss of control create problems in your life?",FREQ,["GATE:IMP"]),
+    q("g_pd","Have certain personality or relationship patterns been present for many years and across most areas of your life?",FREQ,["GATE:PD"]),
+  ],
+
+  mood: [
+    q("m_dep_mood","Feeling down, empty, or hopeless most days",FREQ,["MDD:A1"]),
+    q("m_anhed","Losing interest or enjoyment in things you usually like",FREQ,["MDD:A2"]),
+    q("m_sleep","Trouble sleeping too much or too little",FREQ,["MDD:A3","GAD:A","PTSD:E"]),
+    q("m_app","Appetite or weight changes that feel noticeable",FREQ,["MDD:A4"]),
+    q("m_energy","Feeling tired, drained, or running on empty",FREQ,["MDD:A6","GAD:A"]),
+    q("m_guilt","Feeling worthless, ashamed, or overly guilty",FREQ,["MDD:A7"]),
+    q("m_conc","Difficulty focusing, remembering, or making decisions",FREQ,["MDD:A8","GAD:A","ADHD:INATT"]),
+    q("m_psycho","Feeling slowed down, or unusually restless and unable to sit still",FREQ,["MDD:A5"]),
+    q("m_death","Thoughts about death, wishing you wouldn’t wake up, or feeling like life isn’t worth it",FREQ,["MDD:A9"]),
+
+    q("b_episode","Have you ever had a clear period where you felt unusually energized, wired, or irritable compared to your normal self?",YESNO,["BIP:EPISODE"]),
+    q("b_sleep_less","During that time, did you need much less sleep and still feel energized?",YESNO,["BIP:MANIA:A"]),
+    q("b_talk","During that time, did you talk much more or feel pressure to keep talking?",YESNO,["BIP:MANIA:A"]),
+    q("b_racing","During that time, did your thoughts race or jump quickly?",YESNO,["BIP:MANIA:A"]),
+    q("b_goal","During that time, were you unusually driven, productive, or agitated?",YESNO,["BIP:MANIA:A"]),
+    q("b_risky","During that time, did you do things that later felt risky or out of character?",YESNO,["BIP:MANIA:A","SUD:FLAG"]),
+    q("b_impair","Did those periods cause serious problems, hospitalization, or loss of control?",YESNO,["BIP:SEVERE","PSY:SPEC"]),
+  ],
+
+  anx: [
+    q("a_worry","Worrying excessively about many things and struggling to control it",FREQ,["GAD:A"]),
+    q("a_restless","Feeling tense, restless, or on edge",FREQ,["GAD:A"]),
+    q("a_tense","Frequent physical tension (tight shoulders, clenched jaw, etc.)",FREQ,["GAD:A"]),
+    q("a_irritable","Becoming easily irritated or overwhelmed",FREQ,["GAD:A","PTSD:E"]),
+    q("a_panic","Sudden waves of intense fear or panic with physical symptoms (heart racing, shortness of breath, etc.)",FREQ,["PANIC"]),
+    q("a_avoid","Avoiding places or situations because of fear or anxiety",FREQ,["ANX:AVOID"]),
+  ],
+
+  trauma: [
+    q("t_intrude","Unwanted memories, flashbacks, or nightmares related to a traumatic event",FREQ,["PTSD:B"]),
+    q("t_avoid","Avoiding reminders of the event, even thoughts or conversations",FREQ,["PTSD:C"]),
+    q("t_neg","Persistent shame, fear, anger, numbness, or negative beliefs about yourself or the world",FREQ,["PTSD:D","MDD:A1"]),
+    q("t_hyper","Feeling constantly alert, jumpy, or easily startled",FREQ,["PTSD:E","GAD:A"]),
+    q("diss_depersonal","Feeling disconnected from your body or from yourself (like you’re watching yourself from the outside)",FREQ,["DISS:DPDR"]),
+    q("diss_dereal","Feeling like the world around you isn’t real or feels distant/foggy",FREQ,["DISS:DPDR"]),
+    q("diss_amnesia","Missing memories for important events or periods of time",FREQ,["DISS:AMNESIA","PTSD:D"]),
+  ],
+
+  psy: [
+    q("p_hall","Hearing/seeing/sensing things that other people don’t perceive",FREQ,["PSY:HAL"]),
+    q("p_del","Strong beliefs that others say don’t match reality (but feel absolutely true to you)",FREQ,["PSY:DEL"]),
+    q("p_disorg","People say your speech or thoughts are hard to follow, or you lose track mid-sentence",FREQ,["PSY:DISORG"]),
+    q("p_neg","Feeling emotionally flat, unmotivated, or socially withdrawn in a way that’s unlike your baseline",FREQ,["PSY:NEG","MDD:A6"]),
+    q("p_moodonly","Do these experiences happen only when you’re in a major mood episode (very depressed or very energized)?",YESNO,["PSY:MOOD_ONLY"]),
+  ],
+
+  ocd: [
+    q("o_obs","Unwanted intrusive thoughts/urges/images that keep coming back and cause distress",FREQ,["OCD:OBS"]),
+    q("o_comp","Feeling driven to do certain behaviors or mental rituals to reduce anxiety (even if it doesn’t fully make sense)",FREQ,["OCD:COMP"]),
+    q("o_time","These thoughts/behaviors are time-consuming (about 1+ hour/day) or clearly interfere with life",YESNO,["OCD:IMPAIR"]),
+  ],
+
+  neuro: [
+    q("h_inatt","Inattention: losing focus, making careless mistakes, zoning out, or struggling to stay on task",FREQ,["ADHD:INATT"]),
+    q("h_organize","Difficulty organizing tasks, starting, or finishing things",FREQ,["ADHD:INATT"]),
+    q("h_forget","Forgetfulness or frequently losing important items",FREQ,["ADHD:INATT"]),
+    q("h_hyper","Restlessness: fidgeting, feeling driven to move, or feeling “on the go”",FREQ,["ADHD:HYP"]),
+    q("asd_social","Difficulty reading social cues or doing back-and-forth conversation naturally",FREQ,["ASD:SOC"]),
+    q("asd_routines","Strong need for routines or distress with unexpected change",FREQ,["ASD:RRB","OCPD:TRAIT"]),
+    q("asd_sensory","Sensory sensitivities (sound/light/touch/texture) that noticeably affect you",FREQ,["ASD:SENS"]),
+    q("dev_childhood","Were these attention/social patterns present in childhood (even if not recognized then)?",YESNO,["ADHD:AGE","ASD:AGE"]),
+  ],
+
+  eat: [
+    q("e_restrict","Restricting food intake or intense fear of weight gain",FREQ,["EAT:AN"]),
+    q("e_binge","Episodes of eating unusually large amounts with a sense of losing control",FREQ,["EAT:BED"]),
+    q("e_comp","Compensatory behaviors (vomiting, laxatives, excessive exercise) to “undo” eating",FREQ,["EAT:BN"]),
+    q("e_bodyimage","Body image strongly influences your self-worth or mood",FREQ,["EAT:AN","EAT:BN"]),
+  ],
+
+  som: [
+    q("som_focus","Physical symptoms cause high distress and occupy a lot of your attention",FREQ,["SOM:SSD"]),
+    q("ill_anx","Persistent fear of serious illness despite reassurance or normal tests",FREQ,["SOM:IAD"]),
+  ],
+
+  sleep: [
+    q("sl_insomnia","Trouble falling asleep, staying asleep, or waking too early",FREQ,["SLEEP:INS"]),
+    q("sl_circadian","Sleep schedule shifted (day/night reversed) causing impairment",FREQ,["SLEEP:CRD"]),
+  ],
+
+  sud: [
+    q("su_control","Once you start using, it’s hard to stop or control how much",FREQ,["SUD:CTRL"]),
+    q("su_conseq","Continuing to use despite problems (health, relationships, work, legal)",FREQ,["SUD:CONSEQ"]),
+    q("su_crave","Cravings or strong urges to use",FREQ,["SUD:CRAVE"]),
+  ],
+
+  imp: [
+    q("imp_explode","Angry outbursts that feel out of proportion to what happened",FREQ,["IED"]),
+    q("imp_rules","A long-term pattern of serious rule-breaking, aggression, or deceit that causes harm",FREQ,["CD_ASPD"]),
+  ],
+
+  pd: [
+    q("pd_stable","These patterns feel stable over many years and show up across most parts of life",YESNO,["PD:CORE"]),
+    q("pd_rel","Relationships feel intense, unstable, or full of fear of abandonment",FREQ,["BPD","CLB"]),
+    q("pd_identity","Sense of identity feels unstable or unclear",FREQ,["BPD","CLB"]),
+    q("pd_impuls","Impulsivity in ways that later cause problems",FREQ,["BPD","ASPD","CLB","BIP:MANIA:A"]),
+    q("pd_emotion","Emotions shift quickly and feel overwhelming",FREQ,["BPD","CLB"]),
+    q("pd_grand","Feeling superior or needing admiration to feel okay",FREQ,["NPD","CLB"]),
+    q("pd_lackem","Difficulty empathizing or considering others’ feelings",FREQ,["NPD","ASPD","CLB"]),
+    q("pd_susp","Strong distrust or suspicion of others’ intentions",FREQ,["PPD","CLA"]),
+    q("pd_detach","Emotional detachment or little interest in close relationships",FREQ,["SZPD","CLA"]),
+    q("pd_avoid","Avoiding closeness because of fear of rejection or criticism",FREQ,["AVPD","CLC"]),
+    q("pd_depend","Relying heavily on others to decide or feel secure",FREQ,["DPD","CLC"]),
+    q("pd_perfect","Rigid perfectionism and strong need for control/organization",FREQ,["OCPD","CLC","OCPD:TRAIT"]),
+  ],
+};
+
+const ALL = [].concat(
+  BANK.safety, BANK.conf, BANK.gates,
+  BANK.mood, BANK.anx, BANK.trauma, BANK.psy, BANK.ocd,
+  BANK.neuro, BANK.eat, BANK.som, BANK.sleep, BANK.sud, BANK.imp, BANK.pd
+);
+
+const DOMAINS = [
+  {name:"Bipolar spectrum (screening)", tags:["BIP:EPISODE","BIP:MANIA:A","BIP:SEVERE"]},
+  {name:"Depressive disorders (screening)", tags:["MDD:A1","MDD:A2","MDD:A3","MDD:A4","MDD:A5","MDD:A6","MDD:A7","MDD:A8","MDD:A9"]},
+  {name:"Anxiety disorders (screening)", tags:["GAD:A","PANIC","ANX:AVOID"]},
+  {name:"PTSD / trauma (screening)", tags:["PTSD:A","PTSD:B","PTSD:C","PTSD:D","PTSD:E"]},
+  {name:"Dissociative disorders (screening)", tags:["DISS:DPDR","DISS:AMNESIA"]},
+  {name:"Psychosis (screening)", tags:["PSY:HAL","PSY:DEL","PSY:DISORG","PSY:NEG","PSY:MOOD_ONLY"]},
+  {name:"OCD-related (screening)", tags:["OCD:OBS","OCD:COMP","OCD:IMPAIR"]},
+  {name:"ADHD (screening)", tags:["ADHD:INATT","ADHD:HYP","ADHD:AGE"]},
+  {name:"Autism spectrum (screening)", tags:["ASD:SOC","ASD:RRB","ASD:SENS","ASD:AGE"]},
+  {name:"Eating disorders (screening)", tags:["EAT:AN","EAT:BN","EAT:BED"]},
+  {name:"Somatic/Illness anxiety (screening)", tags:["SOM:SSD","SOM:IAD"]},
+  {name:"Sleep-wake disorders (screening)", tags:["SLEEP:INS","SLEEP:CRD"]},
+  {name:"Substance use (screening)", tags:["SUD:CTRL","SUD:CONSEQ","SUD:CRAVE"]},
+  {name:"Impulse-control/disruptive (screening)", tags:["IED","CD_ASPD"]},
+  {name:"Personality patterns (traits screening)", tags:["PD:CORE","CLA","CLB","CLC","BPD","NPD","ASPD","PPD","SZPD","AVPD","DPD","OCPD","OCPD:TRAIT"]},
+];
+
+function $(id){ return document.getElementById(id); }
+function setHidden(id, yes){ $(id).classList.toggle("hidden", !!yes); }
+function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+
+function labelFor(score){
+  if (score>=75) return "High match";
+  if (score>=45) return "Moderate match";
+  if (score>=25) return "Low match";
+  return "Minimal match";
+}
+function confidenceFor(completeness){
+  if (completeness>=90) return "High";
+  if (completeness>=70) return "Moderate";
+  if (completeness>=50) return "Low";
+  return "Very low";
+}
+
+/* =========================
+   RENDER
+========================= */
+function renderQuestions(containerId, list){
+  const host = $(containerId);
+  host.innerHTML = "";
+  list.forEach(item=>{
+    const wrap = document.createElement("div");
+    wrap.className = "q";
+
+    const lab = document.createElement("label");
+    lab.textContent = item.text;
+    wrap.appendChild(lab);
+
+    const choices = document.createElement("div");
+    choices.className = "choices";
+
+    item.scale.forEach(opt=>{
+      const l = document.createElement("label");
+      const inp = document.createElement("input");
+      inp.type = "radio";
+      inp.name = item.id;
+      inp.value = String(opt.v);
+      l.appendChild(inp);
+      l.appendChild(document.createTextNode(" " + opt.t));
+      choices.appendChild(l);
+    });
+
+    wrap.appendChild(choices);
+    host.appendChild(wrap);
+  });
+}
+
+function getVal(id){
+  const el = document.querySelector(`input[name="${id}"]:checked`);
+  return el ? Number(el.value) : null;
+}
+
+function visibleModules(){
+  // crisis hides everything else, handled elsewhere
+  const vis = [];
+  // always visible: safety, conf, gates, actions
+  vis.push("secSafety","secConf","secGates");
+  // gated modules:
+  if (!document.getElementById("modMood").classList.contains("hidden")) vis.push("modMood");
+  if (!document.getElementById("modAnx").classList.contains("hidden")) vis.push("modAnx");
+  if (!document.getElementById("modTrauma").classList.contains("hidden")) vis.push("modTrauma");
+  if (!document.getElementById("modPsy").classList.contains("hidden")) vis.push("modPsy");
+  if (!document.getElementById("modOcd").classList.contains("hidden")) vis.push("modOcd");
+  if (!document.getElementById("modNeuro").classList.contains("hidden")) vis.push("modNeuro");
+  if (!document.getElementById("modEat").classList.contains("hidden")) vis.push("modEat");
+  if (!document.getElementById("modSom").classList.contains("hidden")) vis.push("modSom");
+  if (!document.getElementById("modSleep").classList.contains("hidden")) vis.push("modSleep");
+  if (!document.getElementById("modSud").classList.contains("hidden")) vis.push("modSud");
+  if (!document.getElementById("modImp").classList.contains("hidden")) vis.push("modImp");
+  if (!document.getElementById("modPd").classList.contains("hidden")) vis.push("modPd");
+  return vis;
+}
+
+function questionsForSection(sectionId){
+  switch(sectionId){
+    case "secSafety": return BANK.safety;
+    case "secConf": return BANK.conf;
+    case "secGates": return BANK.gates;
+    case "modMood": return BANK.mood;
+    case "modAnx": return BANK.anx;
+    case "modTrauma": return BANK.trauma;
+    case "modPsy": return BANK.psy;
+    case "modOcd": return BANK.ocd;
+    case "modNeuro": return BANK.neuro;
+    case "modEat": return BANK.eat;
+    case "modSom": return BANK.som;
+    case "modSleep": return BANK.sleep;
+    case "modSud": return BANK.sud;
+    case "modImp": return BANK.imp;
+    case "modPd": return BANK.pd;
+    default: return [];
+  }
+}
+
+/* =========================
+   VALIDATION RULES
+========================= */
+const VALIDATION = {
+  minSectionCompletion: 0.70,   // 70% of visible module questions answered
+  minGatesAnswered: 0.90,       // gates should be basically complete
+  allowSubmitWithWarnings: true // don’t block, just warn unless crisis
+};
+
+function sectionCompletion(sectionId){
+  const qs = questionsForSection(sectionId);
+  if (!qs.length) return {answered:0,total:0,ratio:1};
+  let answered = 0;
+  qs.forEach(q=>{
+    if (getVal(q.id) !== null) answered++;
+  });
+  const total = qs.length;
+  const ratio = total ? answered/total : 1;
+  return {answered,total,ratio};
+}
+
+function anySafetyTriggered(){
+  return BANK.safety.some(q=>q.opts.stopIfYes && getVal(q.id)===1);
+}
+
+function gateStates(){
+  return {
+    mood: (getVal("g_mood") ?? 0) >= 2,
+    anx:  (getVal("g_anx") ?? 0) >= 2,
+    trauma: (getVal("g_trauma") ?? 0) === 1,
+    psy: (getVal("g_psy") ?? 0) >= 2,
+    ocd: (getVal("g_ocd") ?? 0) >= 2,
+    neuro: (getVal("g_neuro") ?? 0) >= 2,
+    eat: (getVal("g_eat") ?? 0) >= 2,
+    som: (getVal("g_som") ?? 0) >= 2,
+    sleep: (getVal("g_sleep") ?? 0) >= 2,
+    sud: (getVal("g_sud") ?? 0) >= 2,
+    imp: (getVal("g_imp") ?? 0) >= 2,
+    pd: (getVal("g_pd") ?? 0) >= 2,
+  };
+}
+
+function consistencyFlags(gates){
+  const flags = [];
+
+  // Gate vs symptom conflicts (soft flags, don’t block)
+  if (!gates.trauma){
+    const intr = getVal("t_intrude"), av = getVal("t_avoid"), hyp = getVal("t_hyper");
+    const diss1 = getVal("diss_depersonal"), diss2 = getVal("diss_dereal"), diss3 = getVal("diss_amnesia");
+    const high = [intr,av,hyp,diss1,diss2,diss3].some(v=>v!==null && v>=2);
+    if (high) flags.push("Trauma gate is negative, but trauma/dissociation symptoms were endorsed. A clinician should clarify trauma exposure and context.");
+  }
+
+  if (!gates.mood){
+    const dep = getVal("m_dep_mood"), anh = getVal("m_anhed"), death = getVal("m_death");
+    const high = [dep,anh,death].some(v=>v!==null && v>=2);
+    if (high) flags.push("Mood gate is negative, but mood symptoms were endorsed. A clinician should clarify duration and timing.");
+  }
+
+  if (!gates.psy){
+    const hall = getVal("p_hall"), del = getVal("p_del");
+    const high = [hall,del].some(v=>v!==null && v>=2);
+    if (high) flags.push("Psychosis gate is negative, but perception/reality symptoms were endorsed. A clinician should clarify what was experienced and when.");
+  }
+
+  // Onset / duration flags
+  if (gates.neuro){
+    const child = getVal("dev_childhood");
+    if (child === 0) flags.push("Neurodevelopmental gate is positive, but childhood-onset was not endorsed. A clinician should clarify age of onset.");
+  }
+  if (gates.pd){
+    const stable = getVal("pd_stable");
+    if (stable === 0) flags.push("Personality-pattern gate is positive, but long-term stability was not endorsed. A clinician should clarify duration and pervasiveness.");
+  }
+  if (gates.psy){
+    const moodOnly = getVal("p_moodonly");
+    if (moodOnly === 1) flags.push("Perception/reality symptoms may be mood-linked (mood-only endorsed). Differential diagnosis should consider mood disorders with psychotic features.");
+  }
+
+  // Confound flags
+  const confound = (getVal("c_sub")===1) || (getVal("c_med")===1) || (getVal("c_sleep")===1);
+  if (confound) flags.push("Possible confounders flagged (medical/substance/sleep). A clinician should rule these out before interpreting symptom patterns.");
+
+  return flags;
+}
+
+function validateNow(){
+  const crisis = anySafetyTriggered();
+  const gates = gateStates();
+  const visible = visibleModules();
+
+  const perSection = visible.map(id => ({id, ...sectionCompletion(id)}));
+  const gateComp = sectionCompletion("secGates");
+  const overallAnswered = perSection.reduce((a,x)=>a+x.answered,0);
+  const overallTotal = perSection.reduce((a,x)=>a+x.total,0);
+  const overallRatio = overallTotal ? (overallAnswered/overallTotal) : 1;
+
+  const incompleteSections = perSection
+    .filter(x => x.total>0 && x.ratio < VALIDATION.minSectionCompletion)
+    .map(x => `${x.id} (${Math.round(x.ratio*100)}%)`);
+
+  const flags = consistencyFlags(gates);
+
+  const warnings = [];
+  if (gateComp.total>0 && gateComp.ratio < VALIDATION.minGatesAnswered){
+    warnings.push(`Please answer most of the “Quick Gates” section first. (Currently ${Math.round(gateComp.ratio*100)}% complete.)`);
+  }
+  if (incompleteSections.length){
+    warnings.push(`Some visible sections are too incomplete for reliable results. Please answer more items in: ${incompleteSections.join(", ")}`);
+  }
+  warnings.push(...flags);
+
+  return {
+    crisis,
+    gates,
+    perSection,
+    overallAnswered,
+    overallTotal,
+    overallRatio,
+    confidence: confidenceFor(overallRatio*100),
+    warnings
+  };
+}
+
+/* =========================
+   GATING / VISIBILITY
+========================= */
+function updateVisibility(){
+  const crisis = anySafetyTriggered();
+  setHidden("crisisBox", !crisis);
+
+  // If crisis, hide everything except safety card and crisis box
+  const toHideIfCrisis = ["secConf","secGates","modMood","modAnx","modTrauma","modPsy","modOcd","modNeuro","modEat","modSom","modSleep","modSud","modImp","modPd","secActions"];
+  toHideIfCrisis.forEach(id => setHidden(id, crisis));
+  if (crisis){
+    updateProgress();
+    return;
+  }
+
+  const g = gateStates();
+  setHidden("modMood", !g.mood);
+  setHidden("modAnx", !g.anx);
+  setHidden("modTrauma", !g.trauma);
+  setHidden("modPsy", !g.psy);
+  setHidden("modOcd", !g.ocd);
+  setHidden("modNeuro", !g.neuro);
+  setHidden("modEat", !g.eat);
+  setHidden("modSom", !g.som);
+  setHidden("modSleep", !g.sleep);
+  setHidden("modSud", !g.sud);
+  setHidden("modImp", !g.imp);
+  setHidden("modPd", !g.pd);
+
+  updateProgress();
+}
+
+/* =========================
+   SCORING (credible %)
+   - Completion-weighted
+   - Confound dampening
+   - Gate-based rule-outs
+========================= */
+function scoreByTags(tags){
+  // normalized 0..100 based on answered items within tag set
+  let total=0, max=0, answered=0;
+  ALL.forEach(item=>{
+    if (!item.tags.some(t=>tags.includes(t))) return;
+    const v = getVal(item.id);
+    if (v===null) return;
+    answered++;
+    const norm = (item.scale.length===2) ? (v*3) : v;
+    total += norm;
+    max += 3;
+  });
+  if (max===0) return {score:0, answered:0, possible:0};
+  return {score: clamp((total/max)*100,0,100), answered, possible: max/3};
+}
+
+function exportAnswersAndTags(){
+  return ALL.map(q=>({id:q.id, answer:getVal(q.id), tags:q.tags}));
+}
+
+function submit(){
+  const v = validateNow();
+  if (v.crisis){
+    // hard stop: do not proceed to results
+    $("validationBanner").classList.remove("hidden");
+    $("validationBanner").innerHTML = `<h3>Stop</h3><p class="muted">Safety concern flagged. Please seek immediate help before continuing.</p>`;
+    return;
+  }
+
+  // Show validation warnings on form; still allow submit if configured
+  const banner = $("validationBanner");
+  if (v.warnings.length){
+    banner.classList.remove("hidden");
+    banner.innerHTML = `
+      <h3>Before you submit</h3>
+      <ul>${v.warnings.map(x=>`<li>${escapeHtml(x)}</li>`).join("")}</ul>
+      <p class="muted">You can still submit, but results may be less reliable if many items are unanswered or conflicting.</p>
+    `;
+    if (!VALIDATION.allowSubmitWithWarnings){
+      return;
+    }
+  } else {
+    banner.classList.add("hidden");
+    banner.innerHTML = "";
+  }
+
+  const confound = (getVal("c_sub")===1) || (getVal("c_med")===1) || (getVal("c_sleep")===1);
+  const gates = v.gates;
+
+  // Auto rule-outs
+  const ruledOut = [];
+  if (!gates.mood) ruledOut.push("Mood disorders (gate negative)");
+  if (!gates.anx) ruledOut.push("Anxiety disorders (gate negative)");
+  if (!gates.trauma) ruledOut.push("PTSD/Trauma disorders (gate negative)");
+  if (!gates.psy) ruledOut.push("Primary psychotic disorders (gate negative)");
+  if (!gates.ocd) ruledOut.push("OCD-related disorders (gate negative)");
+  if (!gates.neuro) ruledOut.push("Neurodevelopmental disorders (gate negative)");
+  if (!gates.eat) ruledOut.push("Eating disorders (gate negative)");
+  if (!gates.som) ruledOut.push("Somatic/illness anxiety (gate negative)");
+  if (!gates.sleep) ruledOut.push("Sleep-wake disorders (gate negative)");
+  if (!gates.sud) ruledOut.push("Substance use disorders (gate negative)");
+  if (!gates.imp) ruledOut.push("Impulse/disruptive disorders (gate negative)");
+  if (!gates.pd) ruledOut.push("Personality patterns (gate negative)");
+
+  // Score domains
+  const scored = DOMAINS.map(d=>{
+    const raw = scoreByTags(d.tags);
+
+    // Completion weighting: if a domain has very few answered items, dampen
+    const domainCompleteness = raw.possible ? clamp(raw.answered/raw.possible, 0, 1) : 0;
+    const completenessWeight = clamp((domainCompleteness - 0.30) / (0.90 - 0.30), 0, 1); // ramp 30%→90%
+
+    let score = raw.score * (0.55 + 0.45*completenessWeight);
+
+    // Confound dampening
+    if (confound) score *= 0.75;
+
+    return {name:d.name, score: clamp(score,0,100), answered: raw.answered, possible: raw.possible, domainCompleteness};
+  }).filter(d=>{
+    // hide gated-off areas from results to reduce noise
+    if (d.name.includes("Bipolar") && !gates.mood) return false;
+    if (d.name.includes("Depressive") && !gates.mood) return false;
+    if (d.name.includes("Anxiety") && !gates.anx) return false;
+    if (d.name.includes("PTSD") && !gates.trauma) return false;
+    if (d.name.includes("Dissociative") && !gates.trauma) return false;
+    if (d.name.includes("Psychosis") && !gates.psy) return false;
+    if (d.name.includes("OCD") && !gates.ocd) return false;
+    if (d.name.includes("ADHD") && !gates.neuro) return false;
+    if (d.name.includes("Autism") && !gates.neuro) return false;
+    if (d.name.includes("Eating") && !gates.eat) return false;
+    if (d.name.includes("Somatic") && !gates.som) return false;
+    if (d.name.includes("Sleep") && !gates.sleep) return false;
+    if (d.name.includes("Substance") && !gates.sud) return false;
+    if (d.name.includes("Impulse") && !gates.imp) return false;
+    if (d.name.includes("Personality") && !gates.pd) return false;
+    return true;
+  }).sort((a,b)=>b.score-a.score);
+
+  // Top summary block
+  const top = `
+    <div class="two">
+      <div class="card ${confound ? "warn": "ok"}">
+        <h2>Summary</h2>
+        <p class="muted"><b>Data confidence:</b> ${escapeHtml(v.confidence)} (overall completeness ${Math.round(v.overallRatio*100)}%)</p>
+        ${confound ? `<p><b>Rule-out caution:</b> medical/substance/sleep factors were flagged. A clinician should evaluate these first.</p>` :
+          `<p class="muted">No strong confounders were flagged in the rule-out section.</p>`}
+        <p class="muted">Scores below are screening matches (0–100). They are not diagnoses and not probabilities.</p>
+      </div>
+      <div class="card">
+        <h2>Auto rule-outs</h2>
+        ${ruledOut.length ? `<ul>${ruledOut.map(x=>`<li>${escapeHtml(x)}</li>`).join("")}</ul>` : `<p class="muted">None.</p>`}
+      </div>
+    </div>
+  `;
+  $("resultsTop").innerHTML = top;
+
+  // Score blocks
+  let blocks = "";
+  scored.forEach(r=>{
+    const pct = Math.round(r.score);
+    const comp = Math.round(r.domainCompleteness*100);
+    blocks += `
+      <div class="card">
+        <div class="row">
+          <div><b>${escapeHtml(r.name)}</b> <span class="pill">${labelFor(r.score)}</span></div>
+          <div><b>${pct}</b>/100</div>
+        </div>
+        <div class="bar"><div style="width:${pct}%"></div></div>
+        <p class="muted">
+          Section completeness for this area: <b>${comp}%</b> (${r.answered}/${r.possible} answered).<br/>
+          Discuss this with a clinician if it feels relevant.
+        </p>
+      </div>
+    `;
+  });
+  $("resultsScores").innerHTML = blocks;
+
+  // EHR summary (clinician-style)
+  const topFindings = scored.slice(0,5).map(r => ({
+    name: r.name,
+    score: Math.round(r.score),
+    band: labelFor(r.score),
+    completeness: Math.round(r.domainCompleteness*100)
+  }));
+
+  const flags = v.warnings; // includes consistency + confounds + completion notes
+  const safetyFlag = false; // crisis would have stopped
+
+  $("ehrSummary").innerHTML = `
+    <div class="two">
+      <div class="card">
+        <h3>Top screening matches</h3>
+        ${topFindings.length ? `<ol>${topFindings.map(x=>
+          `<li><b>${escapeHtml(x.name)}</b> — ${x.score}/100 (${escapeHtml(x.band)}), completeness ${x.completeness}%</li>`
+        ).join("")}</ol>` : `<p class="muted">No scored domains available (likely due to gates).</p>`}
+      </div>
+      <div class="card">
+        <h3>Quality / flags for clinician</h3>
+        <p class="muted"><b>Overall completeness:</b> ${Math.round(v.overallRatio*100)}% — Confidence: ${escapeHtml(v.confidence)}</p>
+        <p class="muted"><b>Rule-out confounders:</b> ${confound ? "Yes (needs clarification)" : "No flags"}</p>
+        <p class="muted"><b>Safety flag:</b> ${safetyFlag ? "Yes" : "No (per this form)"} </p>
+        ${flags.length ? `<ul>${flags.map(f=>`<li>${escapeHtml(f)}</li>`).join("")}</ul>` : `<p class="muted">No consistency/quality flags detected.</p>`}
+      </div>
+    </div>
+    <div class="card">
+      <h3>Suggested follow-ups</h3>
+      <ul>
+        <li>Clarify symptom <b>duration</b>, <b>onset</b>, and <b>impairment</b> in each elevated area.</li>
+        <li>Review <b>medical/substance/sleep</b> contributors if flagged.</li>
+        <li>Consider structured assessment instruments as appropriate (clinician-selected).</li>
+      </ul>
+    </div>
+  `;
+
+  // dump raw
+  $("tagDump").textContent = JSON.stringify({
+    meta:{
+      createdAt: new Date().toISOString(),
+      completeness: Math.round(v.overallRatio*100),
+      confidence: v.confidence,
+      confound,
+      gates
+    },
+    scores: scored.map(s=>({
+      domain: s.name,
+      score: Math.round(s.score),
+      rawCompleteness: Math.round(s.domainCompleteness*100),
+      answered: s.answered,
+      possible: s.possible
+    })),
+    ruledOut,
+    warnings: v.warnings,
+    answers: exportAnswersAndTags()
+  }, null, 2);
+
+  $("pageForm").classList.add("hidden");
+  $("pageResults").classList.remove("hidden");
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+/* =========================
+   SAVE / RESUME (localStorage)
+========================= */
+const STORAGE_KEY = "dsm_optionB_plus_v1";
+
+function snapshotAnswers(){
+  const snap = {};
+  ALL.forEach(q=>{
+    const v = getVal(q.id);
+    if (v !== null) snap[q.id] = v;
+  });
+  return snap;
+}
+
+function applyAnswers(snap){
+  if (!snap || typeof snap !== "object") return;
+  Object.entries(snap).forEach(([name,val])=>{
+    const el = document.querySelector(`input[name="${cssEscape(name)}"][value="${cssEscape(String(val))}"]`);
+    if (el) el.checked = true;
+  });
+  updateVisibility();
+  updateProgress();
+}
+
+function saveNow(){
+  const payload = {
+    savedAt: new Date().toISOString(),
+    answers: snapshotAnswers(),
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  setAutosave("saved");
+}
+
+function loadNow(){
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) {
+    alert("No saved answers found on this device/browser.");
+    return;
+  }
+  try{
+    const payload = JSON.parse(raw);
+    applyAnswers(payload.answers || {});
+    setAutosave("loaded");
+  }catch(e){
+    alert("Saved data was corrupted or unreadable.");
+  }
+}
+
+function clearSaved(){
+  localStorage.removeItem(STORAGE_KEY);
+  setAutosave("cleared");
+}
+
+/* =========================
+   PROGRESS BAR
+========================= */
+function updateProgress(){
+  const crisis = anySafetyTriggered();
+  const vis = crisis ? ["secSafety"] : visibleModules();
+  const per = vis.map(id => sectionCompletion(id));
+  const answered = per.reduce((a,x)=>a+x.answered,0);
+  const total = per.reduce((a,x)=>a+x.total,0);
+  const pct = total ? Math.round((answered/total)*100) : 0;
+
+  $("progressBar").style.width = pct + "%";
+  $("progressPill").textContent = pct + "%";
+  $("progressText").textContent = `${answered} of ${total} answered`;
+  $("sectionText").textContent = `Visible sections: ${vis.length}`;
+
+  // soft prompt to answer gates first
+  const gateComp = sectionCompletion("secGates");
+  const banner = $("validationBanner");
+  if (!crisis && gateComp.total>0 && gateComp.ratio < 0.40){
+    banner.classList.remove("hidden");
+    banner.innerHTML = `
+      <h3>Quick tip</h3>
+      <p class="muted">Answer the “Quick Gates” section first so the right sections appear.</p>
+    `;
+  } else if (banner.innerHTML.includes("Quick tip") && !banner.innerHTML.includes("Before you submit")) {
+    banner.classList.add("hidden");
+    banner.innerHTML = "";
+  }
+}
+
+/* =========================
+   UI EVENTS
+========================= */
+function resetFormOnly(){
+  document.querySelectorAll('input[type="radio"]').forEach(i=>i.checked=false);
+  updateVisibility();
+  updateProgress();
+  setAutosave("reset");
+}
+
+function setAutosave(state){
+  const el = $("autosaveStatus");
+  const now = new Date();
+  const time = now.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+  if (state==="saved") el.textContent = `Autosave: saved at ${time}`;
+  else if (state==="loaded") el.textContent = `Autosave: loaded at ${time}`;
+  else if (state==="cleared") el.textContent = `Autosave: cleared at ${time}`;
+  else if (state==="reset") el.textContent = `Autosave: form reset at ${time}`;
+  else el.textContent = `Autosave: updated at ${time}`;
+}
+
+function exportJSON(){
+  const v = validateNow();
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    validation: v,
+    answers: snapshotAnswers(),
+    answersWithTags: exportAnswersAndTags(),
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "screening_export.json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+/* =========================
+   INIT
+========================= */
+function init(){
+  renderQuestions("safetyQs", BANK.safety);
+  renderQuestions("confQs", BANK.conf);
+  renderQuestions("gateQs", BANK.gates);
+
+  renderQuestions("moodQs", BANK.mood);
+  renderQuestions("anxQs", BANK.anx);
+  renderQuestions("traumaQs", BANK.trauma);
+  renderQuestions("psyQs", BANK.psy);
+  renderQuestions("ocdQs", BANK.ocd);
+  renderQuestions("neuroQs", BANK.neuro);
+  renderQuestions("eatQs", BANK.eat);
+  renderQuestions("somQs", BANK.som);
+  renderQuestions("sleepQs", BANK.sleep);
+  renderQuestions("sudQs", BANK.sud);
+  renderQuestions("impQs", BANK.imp);
+  renderQuestions("pdQs", BANK.pd);
+
+  document.addEventListener("change", (e)=>{
+    if (e.target && e.target.matches('input[type="radio"]')){
+      updateVisibility();
+      // autosave on every click
+      saveNow();
+      setAutosave("updated");
+    }
+  });
+
+  $("btnSubmit").addEventListener("click", submit);
+  $("btnReset").addEventListener("click", resetFormOnly);
+  $("btnBack").addEventListener("click", ()=>{
+    $("pageResults").classList.add("hidden");
+    $("pageForm").classList.remove("hidden");
+    window.scrollTo({top:0, behavior:"smooth"});
+  });
+  $("btnPrint").addEventListener("click", ()=>window.print());
+
+  $("btnSaveNow").addEventListener("click", saveNow);
+  $("btnLoad").addEventListener("click", loadNow);
+  $("btnClear").addEventListener("click", clearSaved);
+  $("btnExportJSON").addEventListener("click", exportJSON);
+
+  // on load: auto-load saved if exists
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw){
+    try{
+      const payload = JSON.parse(raw);
+      if (payload && payload.answers) applyAnswers(payload.answers);
+      setAutosave("loaded");
+    }catch(e){
+      // ignore
+    }
+  }
+
+  updateVisibility();
+  updateProgress();
+}
+
+/* =========================
+   SMALL HELPERS
+========================= */
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
+}
+function cssEscape(s){
+  // minimal escape for attribute selectors
+  return String(s).replace(/["\\]/g, "\\$&");
+}
+
+init();
+</script>
+
+</body>
+</html>
