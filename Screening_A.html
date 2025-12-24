@@ -36,6 +36,9 @@
   button.primary{background:linear-gradient(90deg,rgba(2,211,233,.22),rgba(6,255,0,.10));border-color:rgba(2,211,233,.35)}
   button.danger{background:rgba(255,92,122,.12);border-color:rgba(255,92,122,.35)}
   button.ghost{background:transparent}
+  input,select,textarea{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:rgba(255,255,255,.03);color:var(--text);font-family:inherit;font-size:14px;box-sizing:border-box}
+  input::placeholder,textarea::placeholder{color:var(--muted)}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:rgba(2,211,233,.55);box-shadow:0 0 0 2px rgba(2,211,233,.15)}
   h1{margin:0;font-size:32px;letter-spacing:-.4px}
   h2{margin:0;font-size:20px}
   h3{margin:0;font-size:16px}
@@ -152,6 +155,36 @@
       </div>
     </div>
 
+    <div class="card" id="sec_demographics">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <div>
+          <h2>Basic Info (optional)</h2>
+          <div class="tiny">Used only to label your results.</div>
+        </div>
+        <span class="badge">Optional</span>
+      </div>
+      <div class="twoCol">
+        <div class="q" style="margin-top:10px">
+          <div class="qtext">Name</div>
+          <input id="dem_name" type="text" placeholder="Full name" autocomplete="name" />
+        </div>
+        <div class="q" style="margin-top:10px">
+          <div class="qtext">Age</div>
+          <input id="dem_age" type="number" min="0" max="120" placeholder="Age" inputmode="numeric" />
+        </div>
+      </div>
+      <div class="twoCol">
+        <div class="q">
+          <div class="qtext">Sex</div>
+          <input id="dem_sex" type="text" placeholder="Sex" />
+        </div>
+        <div class="q">
+          <div class="qtext">Gender identity</div>
+          <input id="dem_gender" type="text" placeholder="Gender identity" />
+        </div>
+      </div>
+    </div>
+
     <!-- CORE GATES -->
     <div class="card" id="sec_core">
       <div class="row" style="justify-content:space-between;align-items:flex-start">
@@ -215,6 +248,8 @@
         <b>Important:</b> Screening percentages are not certainty. They reflect how strongly your answers match common symptom patterns
         after applying rule-outs (medical/substance/sleep/grief).
       </div>
+
+      <div class="row" id="demographicsSummary" style="margin-top:10px;"></div>
 
       <div class="hr"></div>
 
@@ -589,6 +624,7 @@ const DISORDERS = [
    ANSWERS STATE
 ----------------------------- */
 const answers = {};          // questionId -> option string
+const demographics = { name:"", age:"", sex:"", gender:"" };
 const visibleQIds = new Set(); // for progress calc
 
 /* -----------------------------
@@ -611,6 +647,75 @@ function optButtons(container, qid, scale, options){
     row.appendChild(b);
   });
   container.appendChild(row);
+}
+
+function demoValue(key){
+  return String(demographics[key] || "").trim();
+}
+function demoValueOrDash(key){
+  const v = demoValue(key);
+  return v ? v : "—";
+}
+function renderDemographicsInputs(){
+  const map = [
+    ["dem_name","name"],
+    ["dem_age","age"],
+    ["dem_sex","sex"],
+    ["dem_gender","gender"]
+  ];
+  map.forEach(([id, key])=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.value = demographics[key] || "";
+  });
+}
+function bindDemographics(){
+  const map = [
+    ["dem_name","name"],
+    ["dem_age","age"],
+    ["dem_sex","sex"],
+    ["dem_gender","gender"]
+  ];
+  map.forEach(([id, key])=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener("input", ()=>{
+      demographics[key] = el.value;
+      scheduleAutosave();
+    });
+  });
+  renderDemographicsInputs();
+}
+function renderDemographicsSummary(){
+  const wrap = document.getElementById("demographicsSummary");
+  if(!wrap) return;
+  wrap.innerHTML = "";
+  const items = [
+    ["Name", demoValue("name")],
+    ["Age", demoValue("age")],
+    ["Sex", demoValue("sex")],
+    ["Gender identity", demoValue("gender")]
+  ].filter(([, value])=>value);
+  if(items.length === 0){
+    const empty = document.createElement("div");
+    empty.className = "tiny";
+    empty.style.color = "var(--muted)";
+    empty.textContent = "No demographic info provided.";
+    wrap.appendChild(empty);
+    return;
+  }
+  items.forEach(([label, value])=>{
+    const pill = document.createElement("span");
+    pill.className = "pill";
+    pill.style.flex = "0 0 auto";
+    const labelSpan = document.createElement("span");
+    labelSpan.textContent = label + ": ";
+    const valueSpan = document.createElement("b");
+    valueSpan.textContent = value;
+    pill.appendChild(labelSpan);
+    pill.appendChild(valueSpan);
+    wrap.appendChild(pill);
+  });
 }
 
 function getUnlockedKeys(){
@@ -922,6 +1027,12 @@ function buildEHR(matches, confFlags){
   // Build a neutral, clinician-friendly summary using top items and key gates/confounds.
   const top = matches.slice(0,8);
   const endorsed = (id)=>answers[id] ? answers[id] : "—";
+  const demoLines = [
+    `- Name: ${demoValueOrDash("name")}`,
+    `- Age: ${demoValueOrDash("age")}`,
+    `- Sex: ${demoValueOrDash("sex")}`,
+    `- Gender identity: ${demoValueOrDash("gender")}`
+  ].join("\n");
 
   const gateLines = CORE_GATES.map(g=>{
     return `- ${g.text} => ${endorsed(g.id)}`;
@@ -948,6 +1059,9 @@ function buildEHR(matches, confFlags){
 `SCREENING SUMMARY (Educational, Not Diagnostic)
 Mode: ${MODE==="adult" ? "Adult" : "Child/Adolescent"}
 
+PARTICIPANT INFO
+${demoLines}
+
 CORE GATES
 ${gateLines}
 
@@ -973,6 +1087,7 @@ ${disclaimer}
 function renderResults(){
   const {matches, confFlags} = computeMatches();
   const flags = buildFlags();
+  renderDemographicsSummary();
 
   // Top matches table
   const topEl = document.getElementById("topMatchesTable");
@@ -1056,7 +1171,7 @@ function scheduleAutosave(){
   if(autosaveTimer) clearTimeout(autosaveTimer);
   autosaveTimer = setTimeout(()=>{
     try{
-      const payload = { mode: MODE, answers };
+      const payload = { mode: MODE, answers, demographics };
       localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
       setAutosaveState("saved");
     }catch(e){
@@ -1067,7 +1182,7 @@ function scheduleAutosave(){
 
 function saveNow(){
   try{
-    localStorage.setItem(SAVE_KEY, JSON.stringify({mode:MODE, answers}));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({mode:MODE, answers, demographics}));
     setAutosaveState("saved");
     alert("Saved.");
   }catch(e){
@@ -1085,6 +1200,9 @@ function loadNow(){
     // clear + restore
     Object.keys(answers).forEach(k=>delete answers[k]);
     Object.assign(answers, data.answers || {});
+    Object.keys(demographics).forEach(k=>demographics[k]="");
+    Object.assign(demographics, data.demographics || {});
+    renderDemographicsInputs();
     setAutosaveState("loaded");
     refreshAll();
     alert("Loaded.");
@@ -1105,6 +1223,7 @@ function clearSaved(){
 function exportJSON(){
   const payload = {
     mode: MODE,
+    demographics: {...demographics},
     answers: {...answers},
     computed: computeMatches()
   };
@@ -1125,6 +1244,8 @@ function exportJSON(){
 function resetForm(){
   if(!confirm("Reset form answers (does NOT clear saved storage unless you click Clear Saved)?")) return;
   Object.keys(answers).forEach(k=>delete answers[k]);
+  Object.keys(demographics).forEach(k=>demographics[k]="");
+  renderDemographicsInputs();
   refreshAll();
   scheduleAutosave();
 }
@@ -1155,6 +1276,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
   document.getElementById("btnLoad").onclick = loadNow;
   document.getElementById("btnClear").onclick = clearSaved;
   document.getElementById("btnExportJSON").onclick = exportJSON;
+  bindDemographics();
 
   // first render
   refreshAll();
@@ -1166,6 +1288,9 @@ document.addEventListener("DOMContentLoaded", ()=>{
       const data = JSON.parse(raw);
       MODE = data.mode || MODE;
       Object.assign(answers, data.answers || {});
+      Object.keys(demographics).forEach(k=>demographics[k]="");
+      Object.assign(demographics, data.demographics || {});
+      renderDemographicsInputs();
       setAutosaveState("restored");
       refreshAll();
     }
