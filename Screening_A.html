@@ -183,6 +183,47 @@
           <input id="dem_gender" type="text" placeholder="Gender identity" />
         </div>
       </div>
+      <div class="twoCol">
+        <div class="q">
+          <div class="qtext">Sexual orientation</div>
+          <input id="dem_orientation" type="text" placeholder="Sexual orientation" />
+        </div>
+        <div class="q">
+          <div class="qtext">Race</div>
+          <input id="dem_race" type="text" placeholder="Race" />
+        </div>
+      </div>
+      <div class="twoCol">
+        <div class="q">
+          <div class="qtext">Have you been to therapy before or sought treatment before?</div>
+          <div class="opts">
+            <div class="opt" onclick="selectDemOption(this, 'dem_therapy', 'No')">No</div>
+            <div class="opt" onclick="selectDemOption(this, 'dem_therapy', 'Yes')">Yes</div>
+          </div>
+        </div>
+        <div class="q">
+          <div class="qtext">Have you been diagnosed ever?</div>
+          <div class="opts">
+            <div class="opt" onclick="selectDemOption(this, 'dem_diagnosed', 'No')">No</div>
+            <div class="opt" onclick="selectDemOption(this, 'dem_diagnosed', 'Yes')">Yes</div>
+          </div>
+        </div>
+      </div>
+      <div class="q">
+        <div class="qtext">If so, what with?</div>
+        <textarea id="dem_diagnosis" rows="3" placeholder="List any prior diagnoses here..."></textarea>
+      </div>
+      <div class="hr"></div>
+      <div class="warnbox">
+        <div style="font-weight:900;margin-bottom:8px;">Acknowledgment</div>
+        <p style="margin:0 0 10px 0;line-height:1.5;">
+          By completing this form, I acknowledge that I am voluntarily filling it out. I understand that names on the form will be redacted, but the data may be used to help improve this screening tool and help others. All information will be kept confidential and used only for educational and improvement purposes.
+        </p>
+        <label style="display:flex;gap:10px;align-items:center;cursor:pointer;">
+          <input type="checkbox" id="dem_acknowledge" style="width:auto;cursor:pointer;" />
+          <span>I acknowledge and agree to the above terms</span>
+        </label>
+      </div>
     </div>
 
     <!-- CORE GATES -->
@@ -624,7 +665,7 @@ const DISORDERS = [
    ANSWERS STATE
 ----------------------------- */
 const answers = {};          // questionId -> option string
-const demographics = { name:"", age:"", sex:"", gender:"" };
+const demographics = { name:"", age:"", sex:"", gender:"", orientation:"", race:"", therapy:"", diagnosed:"", diagnosis:"", acknowledge:false };
 const visibleQIds = new Set(); // for progress calc
 
 /* -----------------------------
@@ -656,25 +697,62 @@ function demoValueOrDash(key){
   const v = demoValue(key);
   return v ? v : "—";
 }
+function selectDemOption(elem, fieldId, value){
+  demographics[fieldId.replace('dem_','')] = value;
+  const parent = elem.parentElement;
+  [...parent.querySelectorAll(".opt")].forEach(x=>x.classList.remove("sel"));
+  elem.classList.add("sel");
+  scheduleAutosave();
+}
 function renderDemographicsInputs(){
   const map = [
     ["dem_name","name"],
     ["dem_age","age"],
     ["dem_sex","sex"],
-    ["dem_gender","gender"]
+    ["dem_gender","gender"],
+    ["dem_orientation","orientation"],
+    ["dem_race","race"],
+    ["dem_diagnosis","diagnosis"]
   ];
   map.forEach(([id, key])=>{
     const el = document.getElementById(id);
     if(!el) return;
     el.value = demographics[key] || "";
   });
+  // Restore button selections for therapy and diagnosed
+  const therapyVal = demographics.therapy;
+  if(therapyVal){
+    document.querySelectorAll('#sec_demographics .opts').forEach((opts, idx)=>{
+      if(idx === 0){ // therapy question
+        [...opts.querySelectorAll('.opt')].forEach(o=>{
+          if(o.textContent === therapyVal) o.classList.add('sel');
+        });
+      }
+    });
+  }
+  const diagnosedVal = demographics.diagnosed;
+  if(diagnosedVal){
+    document.querySelectorAll('#sec_demographics .opts').forEach((opts, idx)=>{
+      if(idx === 1){ // diagnosed question
+        [...opts.querySelectorAll('.opt')].forEach(o=>{
+          if(o.textContent === diagnosedVal) o.classList.add('sel');
+        });
+      }
+    });
+  }
+  // Restore checkbox
+  const ackEl = document.getElementById("dem_acknowledge");
+  if(ackEl) ackEl.checked = demographics.acknowledge || false;
 }
 function bindDemographics(){
   const map = [
     ["dem_name","name"],
     ["dem_age","age"],
     ["dem_sex","sex"],
-    ["dem_gender","gender"]
+    ["dem_gender","gender"],
+    ["dem_orientation","orientation"],
+    ["dem_race","race"],
+    ["dem_diagnosis","diagnosis"]
   ];
   map.forEach(([id, key])=>{
     const el = document.getElementById(id);
@@ -684,6 +762,14 @@ function bindDemographics(){
       scheduleAutosave();
     });
   });
+  // Bind checkbox
+  const ackEl = document.getElementById("dem_acknowledge");
+  if(ackEl){
+    ackEl.addEventListener("change", ()=>{
+      demographics.acknowledge = ackEl.checked;
+      scheduleAutosave();
+    });
+  }
   renderDemographicsInputs();
 }
 function renderDemographicsSummary(){
@@ -694,7 +780,12 @@ function renderDemographicsSummary(){
     ["Name", demoValue("name")],
     ["Age", demoValue("age")],
     ["Sex", demoValue("sex")],
-    ["Gender identity", demoValue("gender")]
+    ["Gender identity", demoValue("gender")],
+    ["Sexual orientation", demoValue("orientation")],
+    ["Race", demoValue("race")],
+    ["Prior therapy", demoValue("therapy")],
+    ["Previously diagnosed", demoValue("diagnosed")],
+    ["Prior diagnoses", demoValue("diagnosis")]
   ].filter(([, value])=>value);
   if(items.length === 0){
     const empty = document.createElement("div");
@@ -1031,7 +1122,12 @@ function buildEHR(matches, confFlags){
     `- Name: ${demoValueOrDash("name")}`,
     `- Age: ${demoValueOrDash("age")}`,
     `- Sex: ${demoValueOrDash("sex")}`,
-    `- Gender identity: ${demoValueOrDash("gender")}`
+    `- Gender identity: ${demoValueOrDash("gender")}`,
+    `- Sexual orientation: ${demoValueOrDash("orientation")}`,
+    `- Race: ${demoValueOrDash("race")}`,
+    `- Prior therapy: ${demoValueOrDash("therapy")}`,
+    `- Previously diagnosed: ${demoValueOrDash("diagnosed")}`,
+    `- Prior diagnoses: ${demoValueOrDash("diagnosis")}`
   ].join("\n");
 
   const gateLines = CORE_GATES.map(g=>{
@@ -1266,6 +1362,9 @@ function refreshAll(){
 /* -----------------------------
    INIT
 ----------------------------- */
+// Make selectDemOption globally accessible for inline onclick handlers
+window.selectDemOption = selectDemOption;
+
 document.addEventListener("DOMContentLoaded", ()=>{
   // wire buttons
   document.getElementById("btnSubmit").onclick = showResultsPage;
